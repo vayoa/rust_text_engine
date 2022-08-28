@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::common::Many;
-use crate::conditions::Condition;
+use crate::condition::Condition;
 use crate::initializer::RuntimeState;
 
 #[derive(Debug, Deserialize)]
