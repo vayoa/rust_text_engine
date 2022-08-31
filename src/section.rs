@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crossterm::style::{Attribute, Stylize};
+use evalexpr::Node;
 use relative_path::RelativePathBuf;
 use serde::{Deserialize, Deserializer};
 use serde::de::DeserializeOwned;
@@ -17,17 +18,17 @@ use crate::condition::{Condition, Conditional};
 use crate::FileFormat;
 use crate::initializer::{InitializerData, RuntimeState};
 use crate::switcher::Switcher;
+use crate::text_input::TextInput;
+use crate::traits::{Compiled, Executable};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Section {
     #[serde(alias = "seq")]
     Sequence(Vec<Section>),
-    Dialog {
-        #[serde(flatten)]
-        dialogs: HashMap<String, String>,
-        duration: Option<u64>,
-    },
+    Dialog(TextInput),
+    // Like Dialog but won't show the name of the character...
+    Text(TextInput),
     Wait(u64),
     #[serde(alias = "ref")]
     Refer(RelativePathBuf),
@@ -51,19 +52,28 @@ pub enum Section {
         otherwise: Option<Box<Section>>,
     },
     Print(String),
+    Let(String),
 }
 
-impl Section {
-    pub fn execute(&self, init: &InitializerData, state: &mut RuntimeState) {
+impl Executable for Section {
+    fn execute(&self, init: &InitializerData, state: &mut RuntimeState) {
         match &self {
-            Section::Dialog { dialogs, duration } => {
-                for (speaker, text) in dialogs.iter() {
+            Section::Dialog(input) => {
+                for (speaker, text) in input.dialogs.iter() {
                     let c = init.characters.get(speaker)
                         .unwrap_or(&init.default_character);
                     let speaker = String::from(speaker) + ":";
-                    let text = String::from("\t") + text;
                     snailprint_d(c.style(speaker).attribute(Attribute::Underlined), 0.2);
-                    snailprint_s(c.style(text), duration.unwrap_or(20) as f32);
+                    let text = String::from(text);
+                    snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
+                }
+            }
+            Section::Text(input) => {
+                for (speaker, text) in input.dialogs.iter() {
+                    let c = init.characters.get(speaker)
+                        .unwrap_or(&init.default_character);
+                    let text = String::from(text);
+                    snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
                 }
             }
             Section::Wait(seconds) => {
@@ -93,12 +103,16 @@ impl Section {
             Section::Switch(switcher) => {
                 switcher.execute(init, state);
             }
-            Section::Print(val) => println!("{}", val),
+            Section::Print(val) => println!("{}", state.expand_string(val)),
+            Section::Let(expr) => state.var_expr(expr),
+
             Section::Refer(_) | Section::CharacterDef(_) | Section::PendingCompilation => (),
         };
     }
+}
 
-    pub fn compile(&mut self, init: &mut InitializerData, base: &PathBuf) {
+impl Compiled for Section {
+    fn compile(&mut self, init: &mut InitializerData, base: &PathBuf) {
         match *self {
             Section::CharacterDef(ref character) => {
                 let c = character.clone();

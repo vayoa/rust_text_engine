@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use evalexpr::{ContextWithMutableVariables, eval_boolean_with_context, eval_with_context, eval_with_context_mut, HashMapContext, Node, Value};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str as json_from_str;
 use serde_yaml::from_str as yaml_from_str;
@@ -10,6 +13,7 @@ use snailshell::set_snail_fps;
 use crate::character::Character;
 use crate::file_format::FileFormat;
 use crate::section::Section;
+use crate::traits::{Compiled, Executable};
 
 #[derive(Debug, Deserialize)]
 pub struct InitializerData {
@@ -80,5 +84,38 @@ fn deserialize_characters<'de, D>(deserializer: D) -> Result<HashMap<String, Cha
 #[derive(Debug, Default)]
 pub struct RuntimeState {
     pub last_in: String,
+    pub context: HashMapContext,
+}
+
+lazy_static! {
+    static ref RE: Regex = Regex::new(r"\$(?:\{(.+?)}|(.+?)\b)").unwrap();
+}
+
+impl RuntimeState {
+    pub fn expand(&self, val: &str) -> Value {
+        eval_with_context(val, &self.context)
+            .unwrap_or_else(|_| Value::String(val.to_string()))
+    }
+
+    pub fn expand_string(&self, val: &str) -> String {
+        let mut ns = val.to_string();
+        for x in RE.captures_iter(val) {
+            let replace = x.get(0).unwrap().as_str();
+            let m = x.get(1).unwrap_or_else(|| x.get(2).unwrap());
+
+            // TODO: Optimize...
+            ns = ns.replace(replace, &self.expand(m.as_str()).to_string());
+        }
+
+        ns
+    }
+
+    pub fn var_expr(&mut self, expr: &str) {
+        eval_with_context_mut(expr, &mut self.context).unwrap();
+    }
+
+    pub fn var_condition(&self, expr: &str) -> bool {
+        eval_boolean_with_context(expr, &self.context).unwrap_or(false)
+    }
 }
 

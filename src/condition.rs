@@ -13,7 +13,8 @@ pub trait Condition {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Conditional {
-    #[serde(alias = "e, expr")]
+    #[serde(alias = "e")]
+    #[serde(alias = "expr")]
     Expression(String),
     LastIn(Vec<Capture>),
 }
@@ -21,8 +22,7 @@ pub enum Conditional {
 impl Condition for Conditional {
     fn value(&self, state: &RuntimeState) -> bool {
         match &self {
-            // TODO: Implement this...
-            Conditional::Expression(_) => todo!(),
+            Conditional::Expression(expr) => state.var_condition(expr),
             Conditional::LastIn(captures) => captures.iter().all(|cap| cap.captures(&state.last_in)),
         }
     }

@@ -6,6 +6,8 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use evalexpr::ValueType::String;
+use regex::Regex;
 use tui::{backend::CrosstermBackend, Frame, layout::{Constraint, Direction, Layout}, Terminal, widgets::{Block, Borders, Widget}};
 use tui::backend::Backend;
 use tui::widgets::Paragraph;
@@ -21,9 +23,13 @@ mod capture;
 mod condition;
 mod switcher;
 mod common;
+mod text_input;
+mod traits;
+mod character_style;
 
 
 fn main() {
+    print!("{}[2J", 27 as char);
     handle_yaml();
     // let _ = setup_terminal();
 }
@@ -91,7 +97,7 @@ fn ui<B: Backend>(f: &mut Frame<B>) {
 }
 
 fn handle_yaml() {
-    const ROOT: &str = r"C:\Users\ew0nd\Documents\DialogGame";
+    const ROOT: &str = r"C:\Users\ew0nd\Documents\DialogGame\story1";
     let mut initializer = Initializer::new(ROOT.to_owned(), FileFormat::Yaml);
     initializer.execute();
 }
