@@ -27,3 +27,10 @@ impl<T> Many<T> where T: DeserializeOwned {
         Ok(vec)
     }
 }
+
+pub fn sleep(seconds: u64) {
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    sleep(Duration::from_secs(seconds));
+}

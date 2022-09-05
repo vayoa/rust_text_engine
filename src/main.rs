@@ -7,6 +7,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use evalexpr::ValueType::String;
+use figlet_rs::FIGfont;
 use regex::Regex;
 use tui::{backend::CrosstermBackend, Frame, layout::{Constraint, Direction, Layout}, Terminal, widgets::{Block, Borders, Widget}};
 use tui::backend::Backend;

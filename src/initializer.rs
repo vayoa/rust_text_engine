@@ -92,9 +92,24 @@ lazy_static! {
 }
 
 impl RuntimeState {
+
+    pub fn update_input(&mut self) -> &str {
+        self.last_in.clear();
+        let _ = std::io::stdin().read_line(&mut self.last_in).unwrap();
+        self.context.set_value("last_in".to_string(), Value::String(self.last_in.to_owned())).unwrap();
+        &self.last_in
+    }
+
     pub fn expand(&self, val: &str) -> Value {
         eval_with_context(val, &self.context)
             .unwrap_or_else(|_| Value::String(val.to_string()))
+    }
+
+    pub fn val_to_string(val: Value) -> String {
+        if let Value::String(val) = val {
+            return val;
+        }
+        val.to_string()
     }
 
     pub fn expand_string(&self, val: &str) -> String {
@@ -104,7 +119,7 @@ impl RuntimeState {
             let m = x.get(1).unwrap_or_else(|| x.get(2).unwrap());
 
             // TODO: Optimize...
-            ns = ns.replace(replace, &self.expand(m.as_str()).to_string());
+            ns = ns.replace(replace, &Self::val_to_string(self.expand(m.as_str())));
         }
 
         ns
