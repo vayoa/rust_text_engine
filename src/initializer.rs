@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::{fs, thread};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Duration;
+use std::{fs, thread};
 
-use cursive::{Cursive, CursiveRunnable};
+use cursive::views::TextContent;
+use cursive::{CbSink, Cursive, CursiveRunnable};
 use evalexpr::{
     eval_boolean_with_context, eval_with_context, eval_with_context_mut,
     ContextWithMutableVariables, HashMapContext, Node, Value,
@@ -22,6 +23,7 @@ use crate::file_format::FileFormat;
 use crate::section::Section;
 use crate::traits::Compiled;
 use crate::UI;
+use crate::ui::UIMessenger;
 
 #[derive(Debug, Deserialize)]
 pub struct InitializerData {
@@ -77,12 +79,13 @@ impl Initializer {
         initializer
     }
 
-    pub fn execute(&mut self) {
-        set_snail_fps(60);
-        let ui = &mut UI::new();
-        ui.run();
+    pub fn execute(&mut self, ui: UIMessenger) {
+        self.entry.execute(&mut ExecutionState {
+            init: &self.data,
+            state: &mut self.state,
+            ui,
+        });
     }
-
 }
 
 fn deserialize_characters<'de, D>(deserializer: D) -> Result<HashMap<String, Character>, D::Error>

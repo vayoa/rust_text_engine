@@ -35,7 +35,7 @@ impl TitleInput {
 impl Executable for TitleInput {
     fn execute(&self, execution: &mut ExecutionState) {
         let figure = STD_FONT.convert(&self.text).unwrap();
-        execution.ui.append_to_textview(figure.to_string());
+        execution.ui.append(figure.to_string());
         crate::common::sleep(self.wait);
     }
 }

@@ -63,7 +63,7 @@ impl Executable for Section {
         let state = &mut execution.state;
         let ui = &mut execution.ui;
         match &self {
-            Section::Clear => ui.clear_textview(),
+            Section::Clear => ui.clear(),
             Section::Dialog(input) => {
                 for (speaker, text) in input.dialogs.iter() {
                     let c = init
@@ -72,10 +72,10 @@ impl Executable for Section {
                         .unwrap_or(&init.default_character);
                     let speaker = String::from(speaker) + ":";
                     // snailprint_d(c.style(speaker).attribute(Attribute::Underlined), 0.2);
-                    ui.append_to_textview(c.style_with(speaker, vec![Effect::Underline].as_ref()));
+                    ui.typewrite(c.style_with(speaker, vec![Effect::Underline].as_ref()), 0.2);
                     let text = String::from(text);
                     // snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
-                    ui.append_to_textview(c.style(text));
+                    ui.typewrite_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
                 }
             }
             Section::Text(input) => {
@@ -86,7 +86,7 @@ impl Executable for Section {
                         .unwrap_or(&init.default_character);
                     let text = String::from(text);
                     // snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
-                    ui.append_to_textview(c.style(text));
+                    ui.typewrite_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
                 }
             }
             Section::Title(title_input) => title_input.execute(execution),

@@ -1,15 +1,21 @@
+use std::sync::mpsc;
+use std::thread;
+use std::time::Instant;
+
 use cursive::align::VAlign;
 use cursive::backends::crossterm::crossterm::event::{Event, KeyCode, KeyEvent};
 use cursive::event::{EventResult, EventTrigger, Key};
 use cursive::theme::{BorderStyle, Palette, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
-use cursive::view::SizeConstraint;
+use cursive::view::{ScrollStrategy, SizeConstraint};
 use cursive::views::{
     BoxedView, Dialog, DummyView, EditView, LinearLayout, OnEventView, Panel, ResizedView,
     ScrollView, TextArea, TextContent, TextView,
 };
 use cursive::{CbSink, Cursive, CursiveRunnable, View, With};
+
+use crate::{FileFormat, Initializer};
 
 pub struct UI {
     siv: CursiveRunnable,
@@ -26,17 +32,39 @@ impl UI {
     pub fn new() -> Self {
         let mut siv = Self::root();
 
-        let text_content = TextContent::new("asd");
+        let text_content = TextContent::new("");
 
         siv.add_layer(Self::textview(&text_content));
 
         UI { siv, text_content }
     }
 
-    pub fn cb_sink(&self) -> &CbSink { self.siv.cb_sink() }
+    pub fn cb_sink(&self) -> &CbSink {
+        self.siv.cb_sink()
+    }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, root: &str) {
+        let cb_sink = self.cb_sink().clone();
+
+        let content = self.text_content.clone();
+        let root = root.to_owned();
+
+        // Generate data in a separate thread.
+        thread::spawn(move || {
+            Self::execute_sections(cb_sink, &root, content);
+        });
+
         self.siv.run();
+    }
+
+    // We will only simulate log generation here.
+    // In real life, this may come from a running task, a separate process, ...
+    fn execute_sections(cb_sink: cursive::CbSink, root: &str, content: TextContent) {
+        let mut initializer = Initializer::new(root.to_owned(), FileFormat::Yaml);
+        initializer.execute(UIMessenger {
+            text_content: content,
+            cb_sink,
+        });
     }
 
     fn root() -> CursiveRunnable {
@@ -79,18 +107,74 @@ impl UI {
                             Some(EventResult::consumed())
                         },
                     )),
-            ),
+            ).scroll_strategy(ScrollStrategy::StickToBottom),
         ))
     }
+}
 
-    pub fn clear_textview(&mut self) {
-        self.text_content.set_content("");
+pub struct UIMessenger {
+    text_content: TextContent,
+    cb_sink: CbSink,
+}
+
+impl UIMessenger {
+    pub fn update_ui(&self) {
+        self.cb_sink.send(Box::new(Cursive::noop)).unwrap();
     }
 
-    pub fn append_to_textview<S>(&mut self, s: S)
+    pub fn clear(&mut self) {
+        self.text_content.set_content("");
+        self.update_ui();
+    }
+
+    pub fn append<S>(&mut self, s: S)
     where
         S: Into<StyledString>,
     {
         self.text_content.append(s);
+        self.text_content.append("\n");
+        self.update_ui();
+    }
+
+    pub fn typewrite_s<S>(&mut self, s: S, speed: f32)
+    where
+        S: Into<StyledString>,
+    {
+        let s = s.into();
+        let l = s.width();
+        self.typewrite(s, l as f32 / speed);
+    }
+
+    pub fn typewrite<S>(&mut self, s: S, duration: f32)
+    where
+        S: Into<StyledString>,
+    {
+        use std::thread::sleep;
+
+        let time = Instant::now();
+
+        // TODO: Use the actual styling...
+        let s = s.into();
+        let mut string = s.source().to_string();
+        let fps = 60.0;
+        let delta = 1.0 / fps;
+        let len = string.len();
+
+        'outer: while !s.is_empty() {
+            let char_targ = (len as f32 * time.elapsed().as_secs_f32() / duration) as usize;
+
+            while char_targ > len - string.len() {
+                if !string.is_empty() {
+                    self.text_content.append(string.remove(0));
+                    self.update_ui();
+                } else {
+                    // this is so sleep() is not called when this loop breaks
+                    break 'outer;
+                }
+            }
+            sleep(std::time::Duration::from_secs_f32(delta));
+        }
+        self.text_content.append("\n");
+        self.update_ui();
     }
 }

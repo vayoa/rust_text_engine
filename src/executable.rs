@@ -1,11 +1,13 @@
+use cursive::Cursive;
+
 use crate::initializer::{InitializerData, RuntimeState};
-use crate::UI;
+use crate::ui::UIMessenger;
 
 // TODO: Find a better way to house all of these...
 pub struct ExecutionState<'a> {
     pub init: &'a InitializerData,
     pub state: &'a mut RuntimeState,
-    pub ui: &'a mut UI,
+    pub ui: UIMessenger,
 }
 
 pub trait Executable {
