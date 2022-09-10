@@ -58,7 +58,7 @@ fn get_image(dir: &str, scale: u32) -> String {
 }
 
 fn handle_yaml() {
-    const ROOT: &str = r"C:\Users\ew0nd\Documents\DialogGame\story1";
+    const ROOT: &str = r"example";
     let mut ui = UI::new();
     ui.run(ROOT);
 }
