@@ -1,10 +1,10 @@
-use crossterm::style::{Attribute, Color};
-use cursive::theme::Effect;
+use cursive::theme::{BaseColor, Color, Effect};
 use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct CharacterStyle {
     #[serde(default = "CharacterStyle::default_color")]
+    #[serde(deserialize_with = "CharacterStyle::deserialize_color")]
     pub color: Color,
     #[serde(default = "CharacterStyle::default_attributes")]
     #[serde(deserialize_with = "CharacterStyle::deserialize_attributes")]
@@ -22,11 +22,20 @@ impl Default for CharacterStyle {
 
 impl CharacterStyle {
     fn default_color() -> Color {
-        Color::Grey
+        Color::Light(BaseColor::Black)
     }
+
     fn default_attributes() -> Vec<Effect> {
         Vec::new()
     }
+
+    fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Color::parse(&String::deserialize(deserializer)?).unwrap_or(Self::default_color()))
+    }
+
     fn deserialize_attributes<'de, D>(deserializer: D) -> Result<Vec<Effect>, D::Error>
     where
         D: Deserializer<'de>,

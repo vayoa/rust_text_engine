@@ -28,10 +28,7 @@ impl Default for Character {
 
 impl Character {
     pub fn style_with(&self, text: String, effects: &Vec<Effect>) -> StyledString {
-        // let mut s = style(text).with(self.style.color);
-        // let v: Vec<Style> = vec![self.style.color];
-        // TODO: Get the original color...
-        let mut s = Style::from(Color::Light(BaseColor::Red));
+        let mut s = Style::from(self.style.color);
         for effect in self.style.attributes.iter().chain(effects.iter()) {
             // TODO: Find a way without copying...
             s = s.combine(effect.to_owned());
