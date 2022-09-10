@@ -6,10 +6,10 @@ use cursive::theme::{BorderStyle, Palette, Style, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::IndexedSpan;
-use cursive::view::{ScrollStrategy, SizeConstraint};
+use cursive::view::{Margins, ScrollStrategy, SizeConstraint};
 use cursive::views::{
-    DebugView, DummyView, LinearLayout, OnEventView, Panel, ResizedView, ScrollView, TextArea,
-    TextContent, TextView,
+    DebugView, DummyView, LinearLayout, OnEventView, PaddedView, Panel, ResizedView, ScrollView,
+    TextArea, TextContent, TextView,
 };
 use cursive::{CbSink, Cursive, CursiveRunnable, With};
 
@@ -94,27 +94,30 @@ impl UI {
     fn textview(text_content: &TextContent) -> LinearLayout {
         LinearLayout::vertical()
             .child(DummyView.full_height())
-            .child(Panel::new(ResizedView::new(
-                SizeConstraint::Full,
-                SizeConstraint::Fixed(5),
-                ScrollView::new(
-                    LinearLayout::vertical()
-                        .child(DummyView.full_height())
-                        .child(
-                            TextView::new_with_content(text_content.clone())
-                                .with_name("text-output"),
-                        )
-                        .child(OnEventView::new(TextArea::new()).on_pre_event_inner(
-                            EventTrigger::from(Key::Enter),
-                            |v, _e| {
-                                let _text = v.get_content();
-                                v.set_content("");
-                                Some(EventResult::consumed())
-                            },
-                        )),
-                )
-                .scroll_strategy(ScrollStrategy::StickToBottom),
-            )))
+            .child(PaddedView::new(
+                Margins::lr(2, 2),
+                Panel::new(ResizedView::new(
+                    SizeConstraint::Full,
+                    SizeConstraint::Fixed(7),
+                    ScrollView::new(
+                        LinearLayout::vertical()
+                            .child(DummyView.full_height())
+                            .child(
+                                TextView::new_with_content(text_content.clone())
+                                    .with_name("text-output"),
+                            )
+                            .child(OnEventView::new(TextArea::new()).on_pre_event_inner(
+                                EventTrigger::from(Key::Enter),
+                                |v, _e| {
+                                    let _text = v.get_content();
+                                    v.set_content("");
+                                    Some(EventResult::consumed())
+                                },
+                            )),
+                    )
+                    .scroll_strategy(ScrollStrategy::StickToBottom),
+                )),
+            ))
     }
 }
 
