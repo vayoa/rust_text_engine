@@ -5,9 +5,10 @@ use std::time::Instant;
 use cursive::align::VAlign;
 use cursive::backends::crossterm::crossterm::event::{Event, KeyCode, KeyEvent};
 use cursive::event::{EventResult, EventTrigger, Key};
-use cursive::theme::{BorderStyle, Palette, Theme};
+use cursive::theme::{BorderStyle, Palette, Style, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
+use cursive::utils::span::{IndexedSpan, Span, SpannedString};
 use cursive::view::{ScrollStrategy, SizeConstraint};
 use cursive::views::{
     BoxedView, Dialog, DummyView, EditView, LinearLayout, OnEventView, Panel, ResizedView,
@@ -158,19 +159,23 @@ impl UIMessenger {
 
         let time = Instant::now();
 
-        // TODO: Use the actual styling...
-        let s = s.into();
+        let mut s = s.into();
         let mut string = s.source().to_string();
         let fps = 60.0;
         let delta = 1.0 / fps;
         let len = string.len();
+        let span: &IndexedSpan<Style> = s.spans_raw().first().unwrap();
+        // TODO: Use the actual styling, per span!! (instead of just the first span...)
+        let style = span.attr;
 
         'outer: while !s.is_empty() {
             let char_targ = (len as f32 * time.elapsed().as_secs_f32() / duration) as usize;
 
             while char_targ > len - string.len() {
                 if !string.is_empty() {
-                    self.text_content.append(string.remove(0));
+                    let character = string.remove(0);
+                    self.text_content
+                        .append(StyledString::styled(character, style));
                     self.update_ui();
                 } else {
                     // this is so sleep() is not called when this loop breaks
