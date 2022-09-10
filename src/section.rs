@@ -70,11 +70,9 @@ impl Executable for Section {
                         .characters
                         .get(speaker)
                         .unwrap_or(&init.default_character);
-                    let speaker = String::from(speaker) + ":";
-                    // snailprint_d(c.style(speaker).attribute(Attribute::Underlined), 0.2);
+                    let speaker = String::from(speaker);
                     ui.typewrite(c.style_with(speaker, vec![Effect::Underline].as_ref()), 0.2);
-                    let text = String::from(text);
-                    // snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
+                    let text = String::from(": ") + text;
                     ui.typewrite_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
                 }
             }
@@ -85,8 +83,8 @@ impl Executable for Section {
                         .get(speaker)
                         .unwrap_or(&init.default_character);
                     let text = String::from(text);
-                    // snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
-                    ui.typewrite_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
+                    let string = c.style(text);
+                    ui.typewrite_s(string.clone(), input.duration.unwrap_or(c.duration) as f32);
                 }
             }
             Section::Title(title_input) => title_input.execute(execution),

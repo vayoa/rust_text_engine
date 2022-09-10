@@ -1,20 +1,17 @@
-use std::sync::mpsc;
 use std::thread;
 use std::time::Instant;
 
-use cursive::align::VAlign;
-use cursive::backends::crossterm::crossterm::event::{Event, KeyCode, KeyEvent};
-use cursive::event::{EventResult, EventTrigger, Key};
+use cursive::event::{Event, EventResult, EventTrigger, Key};
 use cursive::theme::{BorderStyle, Palette, Style, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
-use cursive::utils::span::{IndexedSpan, Span, SpannedString};
+use cursive::utils::span::IndexedSpan;
 use cursive::view::{ScrollStrategy, SizeConstraint};
 use cursive::views::{
-    BoxedView, Dialog, DummyView, EditView, LinearLayout, OnEventView, Panel, ResizedView,
-    ScrollView, TextArea, TextContent, TextView,
+    DebugView, DummyView, LinearLayout, OnEventView, Panel, ResizedView, ScrollView, TextArea,
+    TextContent, TextView,
 };
-use cursive::{CbSink, Cursive, CursiveRunnable, View, With};
+use cursive::{CbSink, Cursive, CursiveRunnable, With};
 
 use crate::text_input::TitleInput;
 use crate::{FileFormat, Initializer};
@@ -51,6 +48,9 @@ impl UI {
         let content = self.text_content.clone();
         let root = root.to_owned();
 
+        self.siv
+            .add_global_callback(Event::Key(Key::Esc), |s| s.quit());
+
         // Generate data in a separate thread.
         thread::spawn(move || {
             Self::execute_sections(cb_sink, &root, content);
@@ -61,7 +61,7 @@ impl UI {
 
     // We will only simulate log generation here.
     // In real life, this may come from a running task, a separate process, ...
-    fn execute_sections(cb_sink: cursive::CbSink, root: &str, content: TextContent) {
+    fn execute_sections(cb_sink: CbSink, root: &str, content: TextContent) {
         let mut initializer = Initializer::new(root.to_owned(), FileFormat::Yaml);
         initializer.execute(UIMessenger {
             text_content: content,
@@ -149,8 +149,11 @@ impl UIMessenger {
         let s = s.into();
         let l = s.width();
         self.typewrite(s, l as f32 / speed);
+        self.text_content.append("\n");
+        self.update_ui();
     }
 
+    // Stolen from snailprint...
     pub fn typewrite<S>(&mut self, s: S, duration: f32)
     where
         S: Into<StyledString>,
@@ -159,7 +162,7 @@ impl UIMessenger {
 
         let time = Instant::now();
 
-        let mut s = s.into();
+        let s = s.into();
         let mut string = s.source().to_string();
         let fps = 60.0;
         let delta = 1.0 / fps;
@@ -184,8 +187,6 @@ impl UIMessenger {
             }
             sleep(std::time::Duration::from_secs_f32(delta));
         }
-        self.text_content.append("\n");
-        self.update_ui();
     }
 
     pub fn title(&self, input: &TitleInput) {

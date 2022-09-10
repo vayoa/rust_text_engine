@@ -1,28 +1,22 @@
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
-use std::sync::mpsc;
-use std::time::Duration;
-use std::{fs, thread};
 
-use cursive::views::TextContent;
-use cursive::{CbSink, Cursive, CursiveRunnable};
 use evalexpr::{
     eval_boolean_with_context, eval_with_context, eval_with_context_mut,
-    ContextWithMutableVariables, HashMapContext, Node, Value,
+    ContextWithMutableVariables, HashMapContext, Value,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str as json_from_str;
 use serde_yaml::from_str as yaml_from_str;
-use snailshell::set_snail_fps;
 
 use crate::character::Character;
 use crate::executable::{Executable, ExecutionState};
 use crate::file_format::FileFormat;
 use crate::section::Section;
 use crate::traits::Compiled;
-use crate::UI;
 use crate::ui::UIMessenger;
 
 #[derive(Debug, Deserialize)]
@@ -50,9 +44,6 @@ pub struct Initializer {
     #[serde(skip_deserializing)]
     #[serde(skip_serializing)]
     state: RuntimeState,
-    #[serde(skip_deserializing)]
-    #[serde(skip_serializing)]
-    ui: UI,
 }
 
 impl Initializer {

@@ -6,16 +6,16 @@ pub struct CharacterStyle {
     #[serde(default = "CharacterStyle::default_color")]
     #[serde(deserialize_with = "CharacterStyle::deserialize_color")]
     pub color: Color,
-    #[serde(default = "CharacterStyle::default_attributes")]
-    #[serde(deserialize_with = "CharacterStyle::deserialize_attributes")]
-    pub attributes: Vec<Effect>,
+    #[serde(default = "CharacterStyle::default_effects")]
+    #[serde(deserialize_with = "CharacterStyle::deserialize_effects")]
+    pub effects: Vec<Effect>,
 }
 
 impl Default for CharacterStyle {
     fn default() -> Self {
         Self {
             color: CharacterStyle::default_color(),
-            attributes: CharacterStyle::default_attributes(),
+            effects: CharacterStyle::default_effects(),
         }
     }
 }
@@ -25,18 +25,18 @@ impl CharacterStyle {
         Color::Light(BaseColor::Black)
     }
 
-    fn default_attributes() -> Vec<Effect> {
-        Vec::new()
-    }
-
     fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Ok(Color::parse(&String::deserialize(deserializer)?).unwrap_or(Self::default_color()))
+        Ok(Color::parse(&String::deserialize(deserializer)?).unwrap_or_else(Self::default_color))
     }
 
-    fn deserialize_attributes<'de, D>(deserializer: D) -> Result<Vec<Effect>, D::Error>
+    fn default_effects() -> Vec<Effect> {
+        Vec::new()
+    }
+
+    fn deserialize_effects<'de, D>(deserializer: D) -> Result<Vec<Effect>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -53,7 +53,7 @@ impl CharacterStyle {
                 "strikethrough" => Effect::Strikethrough,
                 "underline" | "underlined" => Effect::Underline,
                 "blink" => Effect::Blink,
-                _ => Effect::Simple,
+                _ => panic!("Effect not found."),
             });
         }
         Ok(r)

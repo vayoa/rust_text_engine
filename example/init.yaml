@@ -1,4 +1,4 @@
 characters:
-  - { name: ether, attributes: [Bold, Italic] }
+  - { name: ether, effects: [bold, italic] }
 
 entry: !ref scenes/start
