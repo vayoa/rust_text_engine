@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use figlet_rs::FIGfont;
+use figlet_rs::{FIGfont, FIGure};
 use lazy_static::lazy_static;
 use serde::Deserialize;
 use snailshell::{snailprint_d, snailprint_s};
 
-use crate::initializer::{InitializerData, RuntimeState};
 use crate::executable::{Executable, ExecutionState};
+use crate::initializer::{InitializerData, RuntimeState};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,13 +29,17 @@ lazy_static! {
 }
 
 impl TitleInput {
-    pub fn default_duration() -> u64 { 1 }
+    pub fn default_duration() -> u64 {
+        1
+    }
+
+    pub fn figure(&self) -> FIGure {
+        STD_FONT.convert(&self.text).unwrap()
+    }
 }
 
 impl Executable for TitleInput {
     fn execute(&self, execution: &mut ExecutionState) {
-        let figure = STD_FONT.convert(&self.text).unwrap();
-        execution.ui.append(figure.to_string());
-        crate::common::sleep(self.wait);
+        execution.ui.title(self);
     }
 }

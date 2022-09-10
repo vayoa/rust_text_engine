@@ -15,6 +15,7 @@ use cursive::views::{
 };
 use cursive::{CbSink, Cursive, CursiveRunnable, View, With};
 
+use crate::text_input::TitleInput;
 use crate::{FileFormat, Initializer};
 
 pub struct UI {
@@ -89,26 +90,30 @@ impl UI {
         siv
     }
 
-    fn textview(text_content: &TextContent) -> Panel<ResizedView<ScrollView<LinearLayout>>> {
-        Panel::new(ResizedView::new(
-            SizeConstraint::Full,
-            SizeConstraint::Fixed(5),
-            ScrollView::new(
-                LinearLayout::vertical()
-                    .child(DummyView.full_height())
-                    .child(
-                        TextView::new_with_content(text_content.clone()).with_name("text-output"),
-                    )
-                    .child(OnEventView::new(TextArea::new()).on_pre_event_inner(
-                        EventTrigger::from(Key::Enter),
-                        |v, _e| {
-                            let _text = v.get_content();
-                            v.set_content("");
-                            Some(EventResult::consumed())
-                        },
-                    )),
-            ).scroll_strategy(ScrollStrategy::StickToBottom),
-        ))
+    fn textview(text_content: &TextContent) -> LinearLayout {
+        LinearLayout::vertical()
+            .child(DummyView.full_height())
+            .child(Panel::new(ResizedView::new(
+                SizeConstraint::Full,
+                SizeConstraint::Fixed(5),
+                ScrollView::new(
+                    LinearLayout::vertical()
+                        .child(DummyView.full_height())
+                        .child(
+                            TextView::new_with_content(text_content.clone())
+                                .with_name("text-output"),
+                        )
+                        .child(OnEventView::new(TextArea::new()).on_pre_event_inner(
+                            EventTrigger::from(Key::Enter),
+                            |v, _e| {
+                                let _text = v.get_content();
+                                v.set_content("");
+                                Some(EventResult::consumed())
+                            },
+                        )),
+                )
+                .scroll_strategy(ScrollStrategy::StickToBottom),
+            )))
     }
 }
 
@@ -176,5 +181,18 @@ impl UIMessenger {
         }
         self.text_content.append("\n");
         self.update_ui();
+    }
+
+    pub fn title(&self, input: &TitleInput) {
+        let figure = input.figure().to_string();
+        self.cb_sink
+            .send(Box::new(|s| s.add_layer(TextView::new(figure))))
+            .unwrap();
+        crate::common::sleep(input.wait);
+        self.cb_sink
+            .send(Box::new(|s| {
+                s.pop_layer();
+            }))
+            .unwrap();
     }
 }
