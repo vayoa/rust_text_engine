@@ -3,9 +3,10 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 use crate::condition::Condition;
+use crate::executable::{Executable, ExecutionState};
 use crate::initializer::{InitializerData, RuntimeState};
 use crate::section::Section;
-use crate::traits::{Compiled, Executable};
+use crate::traits::Compiled;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,15 +18,15 @@ pub struct Switcher<T: Condition> {
 }
 
 impl<T> Executable for Switcher<T> where T: Condition {
-    fn execute(&self, init: &InitializerData, state: &mut RuntimeState) {
+    fn execute(&self, execution: &mut ExecutionState) {
         for case in self.cases.iter() {
-            if case.captures.iter().all(|cap| cap.value(state)) {
-                case.section.execute(init, state);
+            if case.captures.iter().all(|cap| cap.value(execution.state)) {
+                case.section.execute(execution);
                 return;
             }
         }
         if let Some(ref section) = self.default {
-            section.execute(init, state);
+            section.execute(execution);
         }
     }
 }

@@ -1,4 +1,6 @@
 use crossterm::style::{style, StyledContent, Stylize};
+use cursive::theme::{BaseColor, Color, Effect, Style};
+use cursive::utils::markup::StyledString;
 use serde::Deserialize;
 
 use crate::character_style::CharacterStyle;
@@ -25,13 +27,23 @@ impl Default for Character {
 }
 
 impl Character {
-    pub fn style(&self, text: String) -> StyledContent<String> {
-        let mut s = style(text).with(self.style.color);
-        for attribute in self.style.attributes.iter() {
-            s = s.attribute(*attribute);
+    pub fn style_with(&self, text: String, effects: &Vec<Effect>) -> StyledString {
+        // let mut s = style(text).with(self.style.color);
+        // let v: Vec<Style> = vec![self.style.color];
+        // TODO: Get the original color...
+        let mut s = Style::from(Color::Light(BaseColor::Red));
+        for effect in self.style.attributes.iter().chain(effects.iter()) {
+            // TODO: Find a way without copying...
+            s = s.combine(effect.to_owned());
         }
-        s
+        StyledString::single_span(text, s)
     }
 
-    fn default_duration() -> u64 { 20 }
+    pub fn style(&self, text: String) -> StyledString {
+        self.style_with(text, vec![].as_ref())
+    }
+
+    fn default_duration() -> u64 {
+        20
+    }
 }

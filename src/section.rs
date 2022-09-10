@@ -2,6 +2,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use crossterm::style::{Attribute, Stylize};
+use cursive::theme::Effect;
+use cursive::utils::markup::StyledString;
+use cursive::With;
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde_json::from_str as json_from_str;
@@ -11,11 +14,12 @@ use snailshell::{snailprint_d, snailprint_s};
 use crate::capture::Capture;
 use crate::character::Character;
 use crate::condition::{Condition, Conditional};
-use crate::FileFormat;
+use crate::executable::{Executable, ExecutionState};
 use crate::initializer::{InitializerData, RuntimeState};
 use crate::switcher::Switcher;
 use crate::text_input::{TextInput, TitleInput};
-use crate::traits::{Compiled, Executable};
+use crate::traits::Compiled;
+use crate::FileFormat;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,9 +58,12 @@ pub enum Section {
 }
 
 impl Executable for Section {
-    fn execute(&self, init: &InitializerData, state: &mut RuntimeState) {
+    fn execute(&self, execution: &mut ExecutionState) {
+        let init = &execution.init;
+        let state = &mut execution.state;
+        let ui = &mut execution.ui;
         match &self {
-            Section::Clear => print!("{}[2J", 27 as char),
+            Section::Clear => ui.clear_textview(),
             Section::Dialog(input) => {
                 for (speaker, text) in input.dialogs.iter() {
                     let c = init
@@ -64,9 +71,11 @@ impl Executable for Section {
                         .get(speaker)
                         .unwrap_or(&init.default_character);
                     let speaker = String::from(speaker) + ":";
-                    snailprint_d(c.style(speaker).attribute(Attribute::Underlined), 0.2);
+                    // snailprint_d(c.style(speaker).attribute(Attribute::Underlined), 0.2);
+                    ui.append_to_textview(c.style_with(speaker, vec![Effect::Underline].as_ref()));
                     let text = String::from(text);
-                    snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
+                    // snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
+                    ui.append_to_textview(c.style(text));
                 }
             }
             Section::Text(input) => {
@@ -76,22 +85,23 @@ impl Executable for Section {
                         .get(speaker)
                         .unwrap_or(&init.default_character);
                     let text = String::from(text);
-                    snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
+                    // snailprint_s(c.style(text), input.duration.unwrap_or(c.duration) as f32);
+                    ui.append_to_textview(c.style(text));
                 }
             }
-            Section::Title(title_input) => title_input.execute(init, state),
+            Section::Title(title_input) => title_input.execute(execution),
             Section::Wait(seconds) => crate::common::sleep(*seconds),
             Section::ResolvedRefer(path) => {
-                init.compiled_refs.get(path).unwrap().execute(init, state)
+                init.compiled_refs.get(path).unwrap().execute(execution)
             }
             Section::Sequence(sections) => {
                 for section in sections {
-                    section.execute(init, state);
+                    section.execute(execution);
                 }
             }
             Section::Input(switcher) => {
                 state.update_input();
-                switcher.execute(init, state);
+                switcher.execute(execution);
             }
             Section::Branch {
                 conditions,
@@ -99,12 +109,12 @@ impl Executable for Section {
                 otherwise,
             } => {
                 if conditions.iter().all(|cap| cap.value(state)) {
-                    then.execute(init, state);
+                    then.execute(execution);
                 } else if let Some(val) = otherwise {
-                    val.execute(init, state);
+                    val.execute(execution);
                 }
             }
-            Section::Switch(switcher) => switcher.execute(init, state),
+            Section::Switch(switcher) => switcher.execute(execution),
             Section::Print(val) => println!("{}", state.expand_string(val)),
             Section::Let(expr) => state.var_expr(expr),
 

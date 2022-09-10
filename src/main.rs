@@ -1,100 +1,60 @@
-use std::{io, thread, time::Duration};
-use std::io::Error;
-
-use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use evalexpr::ValueType::String;
-use figlet_rs::FIGfont;
-use regex::Regex;
-use tui::{backend::CrosstermBackend, Frame, layout::{Constraint, Direction, Layout}, Terminal, widgets::{Block, Borders, Widget}};
-use tui::backend::Backend;
-use tui::widgets::Paragraph;
+use image::GenericImageView;
 
 use crate::file_format::FileFormat;
 use crate::initializer::Initializer;
+use crate::ui::UI;
 
-mod section;
-mod character;
-mod initializer;
-mod file_format;
 mod capture;
-mod condition;
-mod switcher;
+mod character;
+mod character_style;
 mod common;
+mod condition;
+mod executable;
+mod file_format;
+mod initializer;
+mod section;
+mod switcher;
 mod text_input;
 mod traits;
-mod character_style;
-
+mod ui;
 
 fn main() {
-    print!("{}[2J", 27 as char);
+    // println!(
+    //     "{}",
+    //     get_image(
+    //         r"C:\Users\ew0nd\Desktop\Screenshot 2022-09-07 235742.png",
+    //         6
+    //     )
+    // );
+
     handle_yaml();
-    // let _ = setup_terminal();
+}
+fn get_str_ascii(intent: u8) -> &'static str {
+    let index = intent / 32;
+    let ascii = [" ", ".", ",", "-", "~", "+", "=", "@"];
+    ascii[index as usize]
 }
 
-fn setup_terminal() -> Result<(), Error> {
-    // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let res = run_app(&mut terminal);
-
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
-
-    if let Err(err) = res {
-        println!("{:?}", err)
-    }
-
-    Ok(())
-}
-
-fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
-    loop {
-        terminal.draw(ui)?;
-
-        if let Event::Key(key) = event::read()? {
-            if let KeyCode::Char('q') = key.code {
-                return Ok(());
+fn get_image(dir: &str, scale: u32) -> String {
+    let mut output = String::from("");
+    let img = image::open(dir).unwrap();
+    let (width, height) = img.dimensions();
+    for y in 0..height {
+        for x in 0..width {
+            if y % (scale * 2) == 0 && x % scale == 0 {
+                let pix = img.get_pixel(x, y);
+                let mut intent = (pix[0] / 3 + pix[1] / 3 + pix[2] / 3);
+                if pix[3] == 0 {
+                    intent = 0;
+                }
+                output += get_str_ascii(intent);
             }
         }
+        if y % (scale * 2) == 0 {
+            output += "\n";
+        }
     }
-}
-
-fn ui<B: Backend>(f: &mut Frame<B>) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .margin(1)
-        .constraints(
-            [
-                Constraint::Percentage(10),
-                Constraint::Percentage(80),
-                Constraint::Percentage(10)
-            ].as_ref()
-        )
-        .split(f.size());
-    let block = Block::default()
-        .title("Block")
-        .borders(Borders::ALL);
-    f.render_widget(block, chunks[0]);
-    let paragraph = Paragraph::new("Hey.").block(
-        Block::default()
-            .title("Block 2")
-            .borders(Borders::ALL)
-    );
-    f.render_widget(paragraph, chunks[1]);
+    output
 }
 
 fn handle_yaml() {
@@ -102,4 +62,3 @@ fn handle_yaml() {
     let mut initializer = Initializer::new(ROOT.to_owned(), FileFormat::Yaml);
     initializer.execute();
 }
-

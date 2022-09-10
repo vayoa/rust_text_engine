@@ -1,8 +1,14 @@
 use std::collections::HashMap;
-use std::fs;
+use std::{fs, thread};
 use std::path::PathBuf;
+use std::sync::mpsc;
+use std::time::Duration;
 
-use evalexpr::{ContextWithMutableVariables, eval_boolean_with_context, eval_with_context, eval_with_context_mut, HashMapContext, Node, Value};
+use cursive::{Cursive, CursiveRunnable};
+use evalexpr::{
+    eval_boolean_with_context, eval_with_context, eval_with_context_mut,
+    ContextWithMutableVariables, HashMapContext, Node, Value,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
@@ -11,9 +17,11 @@ use serde_yaml::from_str as yaml_from_str;
 use snailshell::set_snail_fps;
 
 use crate::character::Character;
+use crate::executable::{Executable, ExecutionState};
 use crate::file_format::FileFormat;
 use crate::section::Section;
-use crate::traits::{Compiled, Executable};
+use crate::traits::Compiled;
+use crate::UI;
 
 #[derive(Debug, Deserialize)]
 pub struct InitializerData {
@@ -29,7 +37,7 @@ pub struct InitializerData {
     pub default_character: Character,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Initializer {
     #[serde(skip_deserializing)]
     #[serde(skip_serializing)]
@@ -40,6 +48,9 @@ pub struct Initializer {
     #[serde(skip_deserializing)]
     #[serde(skip_serializing)]
     state: RuntimeState,
+    #[serde(skip_deserializing)]
+    #[serde(skip_serializing)]
+    ui: UI,
 }
 
 impl Initializer {
@@ -48,17 +59,15 @@ impl Initializer {
         path.push("init");
         path.set_extension(&extension.name());
         let filename = path.to_str().unwrap();
-        let raw_contents = fs::read_to_string(filename)
-            .expect("Something went wrong with the file.");
+        let raw_contents =
+            fs::read_to_string(filename).expect("Something went wrong with the file.");
 
         path.pop();
 
         let mut initializer: Initializer = match extension {
-            FileFormat::Json =>
-                json_from_str(&raw_contents).expect("JSON was not well-formatted."),
+            FileFormat::Json => json_from_str(&raw_contents).expect("JSON was not well-formatted."),
             FileFormat::Yaml => yaml_from_str(&raw_contents).expect("YAML was not well-formatted."),
         };
-
 
         initializer.data.extension = extension;
         initializer.root = path.to_owned();
@@ -70,12 +79,16 @@ impl Initializer {
 
     pub fn execute(&mut self) {
         set_snail_fps(60);
-        self.entry.execute(&self.data, &mut self.state);
+        let ui = &mut UI::new();
+        ui.run();
     }
+
 }
 
 fn deserialize_characters<'de, D>(deserializer: D) -> Result<HashMap<String, Character>, D::Error>
-    where D: Deserializer<'de> {
+where
+    D: Deserializer<'de>,
+{
     let vec: Vec<Character> = Vec::deserialize(deserializer)?;
     let map: HashMap<_, _> = vec.into_iter().map(|c| (c.name.clone(), c)).collect();
     Ok(map)
@@ -92,17 +105,20 @@ lazy_static! {
 }
 
 impl RuntimeState {
-
     pub fn update_input(&mut self) -> &str {
         self.last_in.clear();
         let _ = std::io::stdin().read_line(&mut self.last_in).unwrap();
-        self.context.set_value("last_in".to_string(), Value::String(self.last_in.to_owned())).unwrap();
+        self.context
+            .set_value(
+                "last_in".to_string(),
+                Value::String(self.last_in.to_owned()),
+            )
+            .unwrap();
         &self.last_in
     }
 
     pub fn expand(&self, val: &str) -> Value {
-        eval_with_context(val, &self.context)
-            .unwrap_or_else(|_| Value::String(val.to_string()))
+        eval_with_context(val, &self.context).unwrap_or_else(|_| Value::String(val.to_string()))
     }
 
     pub fn val_to_string(val: Value) -> String {
@@ -133,4 +149,3 @@ impl RuntimeState {
         eval_boolean_with_context(expr, &self.context).unwrap_or(false)
     }
 }
-

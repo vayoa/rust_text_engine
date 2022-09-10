@@ -6,7 +6,7 @@ use serde::Deserialize;
 use snailshell::{snailprint_d, snailprint_s};
 
 use crate::initializer::{InitializerData, RuntimeState};
-use crate::traits::Executable;
+use crate::executable::{Executable, ExecutionState};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,7 +21,7 @@ pub struct TextInput {
 pub struct TitleInput {
     pub text: String,
     #[serde(default = "TitleInput::default_duration")]
-    pub duration: u64,
+    pub wait: u64,
 }
 
 lazy_static! {
@@ -33,9 +33,9 @@ impl TitleInput {
 }
 
 impl Executable for TitleInput {
-    fn execute(&self, init: &InitializerData, state: &mut RuntimeState) {
+    fn execute(&self, execution: &mut ExecutionState) {
         let figure = STD_FONT.convert(&self.text).unwrap();
-        println!("{}", figure);
-        crate::common::sleep(self.duration);
+        execution.ui.append_to_textview(figure.to_string());
+        crate::common::sleep(self.wait);
     }
 }
