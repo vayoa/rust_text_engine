@@ -1,0 +1,4 @@
+characters:
+  - { name: ether, attributes: [Bold, Italic] }
+
+entry: !ref scenes/start

@@ -1,0 +1,12 @@
+!seq
+- !title
+  text: SNOWMAN
+  wait: 2
+# - !show a picture of a bedroom at night with teenage boy sleeping in his bed.
+#   then, after a while, the symbol of ether shows up (possible in his color).
+- !text
+  ether: wake him up.
+- !wait 4
+# - !in -> options to wake him up.
+- !text
+  ether: present my gift to him.
