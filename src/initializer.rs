@@ -33,7 +33,7 @@ pub struct InitializerData {
     pub default_character: Character,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Initializer {
     #[serde(skip_deserializing)]
     #[serde(skip_serializing)]
@@ -46,28 +46,67 @@ pub struct Initializer {
     state: RuntimeState,
 }
 
+pub enum InitError {
+    YAML(serde_yaml::Error),
+    JSON(serde_json::Error),
+    IO(std::io::Error),
+    UnvalidPath,
+}
+
+impl From<serde_json::Error> for InitError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::JSON(e)
+    }
+}
+impl From<serde_yaml::Error> for InitError {
+    fn from(e: serde_yaml::Error) -> Self {
+        Self::YAML(e)
+    }
+}
+impl From<std::io::Error> for InitError {
+    fn from(e: std::io::Error) -> Self {
+        Self::IO(e)
+    }
+}
+impl ToString for InitError {
+    #[inline]
+    fn to_string(&self) -> String {
+        match self {
+            InitError::YAML(e) => e.to_string(),
+            InitError::JSON(e) => e.to_string(),
+            InitError::IO(e) => e.to_string(),
+            InitError::UnvalidPath => "Unvalid Path".to_string(),
+        }
+    }
+}
+
 impl Initializer {
-    pub fn new(root: String, extension: FileFormat) -> Self {
+    pub fn new(root: String, extension: FileFormat) -> Result<Self, InitError> {
         let mut path = PathBuf::from(&root);
+        println!("reached");
         path.push("init");
+        println!("reached");
         path.set_extension(&extension.name());
-        let filename = path.to_str().unwrap();
-        let raw_contents =
-            fs::read_to_string(filename).expect("Something went wrong with the file.");
+        println!("reached");
+        let filename = path.to_str();
+        if let None = filename {
+            return Err(InitError::UnvalidPath);
+        }
+        let filename = filename.unwrap();
+        let raw_contents = fs::read_to_string(filename)?;
 
         path.pop();
 
         let mut initializer: Initializer = match extension {
-            FileFormat::Json => json_from_str(&raw_contents).expect("JSON was not well-formatted."),
-            FileFormat::Yaml => yaml_from_str(&raw_contents).expect("YAML was not well-formatted."),
+            FileFormat::Json => json_from_str(&raw_contents)?,
+            FileFormat::Yaml => yaml_from_str(&raw_contents)?,
         };
 
         initializer.data.extension = extension;
         initializer.root = path.to_owned();
-
         initializer.entry.compile(&mut initializer.data, &path);
 
-        initializer
+        Ok(initializer)
     }
 
     pub fn execute(&mut self, ui: UIMessenger) {
@@ -99,9 +138,8 @@ lazy_static! {
 }
 
 impl RuntimeState {
-    pub fn update_input(&mut self) -> &str {
-        self.last_in.clear();
-        let _ = std::io::stdin().read_line(&mut self.last_in).unwrap();
+    pub fn update_input(&mut self, m: &mut UIMessenger) -> &str {
+        self.last_in = m.get_append_input();
         self.context
             .set_value(
                 "last_in".to_string(),

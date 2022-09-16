@@ -1,5 +1,3 @@
-use cursive::Cursive;
-
 use crate::initializer::{InitializerData, RuntimeState};
 use crate::ui::UIMessenger;
 

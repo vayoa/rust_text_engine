@@ -8,5 +8,15 @@
   ether: wake him up.
 - !wait 4
 # - !in -> options to wake him up.
+- !in
+  def: !print didn't type "yo".
+  cases:
+  - sec: !print typed "yo".
+    cap: [!lit yo]
 - !text
   ether: present my gift to him.
+- !in
+  def: !print didn't type "yo".
+  cases:
+  - sec: !print typed "yo".
+    cap: [!lit yo]

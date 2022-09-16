@@ -1,17 +1,21 @@
+use std::path::Path;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::Instant;
 
+use cursive::align::VAlign;
+use cursive::direction::Direction;
 use cursive::event::{Event, EventResult, EventTrigger, Key};
 use cursive::theme::{BorderStyle, Palette, Style, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::IndexedSpan;
-use cursive::view::{Margins, ScrollStrategy, SizeConstraint};
+use cursive::view::{Margins, ScrollStrategy, Selector, SizeConstraint};
 use cursive::views::{
     DebugView, DummyView, LinearLayout, OnEventView, PaddedView, Panel, ResizedView, ScrollView,
-    TextArea, TextContent, TextView,
+    StackView, TextArea, TextContent, TextView,
 };
-use cursive::{CbSink, Cursive, CursiveRunnable, With};
+use cursive::{CbSink, Cursive, CursiveRunnable, View, With};
 
 use crate::text_input::TitleInput;
 use crate::{FileFormat, Initializer};
@@ -19,33 +23,49 @@ use crate::{FileFormat, Initializer};
 pub struct UI {
     siv: CursiveRunnable,
     text_content: TextContent,
+    draw_content: TextContent,
 }
 
 impl Default for UI {
     fn default() -> Self {
-        Self::new()
+        Self::new().0
     }
 }
 
 impl UI {
-    pub fn new() -> Self {
+    pub fn new() -> (Self, Receiver<String>) {
         let mut siv = Self::root();
 
         let text_content = TextContent::new("");
+        let draw_content = TextContent::new("");
 
-        siv.add_layer(Self::textview(&text_content));
+        let (tx, rx) = mpsc::channel();
 
-        UI { siv, text_content }
+        siv.add_fullscreen_layer(
+            StackView::new()
+                .fullscreen_layer(TextView::new_with_content(draw_content.clone()).no_wrap())
+                .transparent_layer(Self::textview(&text_content, tx)),
+        );
+
+        (
+            UI {
+                siv,
+                text_content,
+                draw_content,
+            },
+            rx,
+        )
     }
 
     pub fn cb_sink(&self) -> &CbSink {
         self.siv.cb_sink()
     }
 
-    pub fn run(&mut self, root: &str) {
+    pub fn run(&mut self, root: &str, rx: Receiver<String>) {
         let cb_sink = self.cb_sink().clone();
 
         let content = self.text_content.clone();
+        let draw_content = self.draw_content.clone();
         let root = root.to_owned();
 
         self.siv
@@ -53,20 +73,35 @@ impl UI {
 
         // Generate data in a separate thread.
         thread::spawn(move || {
-            Self::execute_sections(cb_sink, &root, content);
+            Self::execute_sections(cb_sink, &root, content, draw_content, rx);
         });
 
-        self.siv.run();
+        // self.siv.run();
     }
 
     // We will only simulate log generation here.
     // In real life, this may come from a running task, a separate process, ...
-    fn execute_sections(cb_sink: CbSink, root: &str, content: TextContent) {
-        let mut initializer = Initializer::new(root.to_owned(), FileFormat::Yaml);
-        initializer.execute(UIMessenger {
+    fn execute_sections(
+        cb_sink: CbSink,
+        root: &str,
+        content: TextContent,
+        frame_content: TextContent,
+        input_receiver: Receiver<String>,
+    ) {
+        let mut m = UIMessenger {
             text_content: content,
             cb_sink,
-        });
+            input_receiver,
+            frame_content,
+        };
+
+        println!("hey");
+        let initializer = Initializer::new(root.to_owned(), FileFormat::Yaml);
+        if let Ok(mut initializer) = initializer {
+            initializer.execute(m);
+        } else {
+            m.append(initializer.unwrap_err().to_string());
+        }
     }
 
     fn root() -> CursiveRunnable {
@@ -91,7 +126,7 @@ impl UI {
         siv
     }
 
-    fn textview(text_content: &TextContent) -> LinearLayout {
+    fn textview(text_content: &TextContent, tx: Sender<String>) -> LinearLayout {
         LinearLayout::vertical()
             .child(DummyView.full_height())
             .child(PaddedView::new(
@@ -106,24 +141,66 @@ impl UI {
                                 TextView::new_with_content(text_content.clone())
                                     .with_name("text-output"),
                             )
-                            .child(OnEventView::new(TextArea::new()).on_pre_event_inner(
-                                EventTrigger::from(Key::Enter),
-                                |v, _e| {
-                                    let _text = v.get_content();
-                                    v.set_content("");
-                                    Some(EventResult::consumed())
-                                },
-                            )),
+                            .child(
+                                OnEventView::new(
+                                    TextArea::new().disabled().with_name("text-input"),
+                                )
+                                .on_pre_event_inner(
+                                    EventTrigger::from(Key::Enter),
+                                    move |v, _e| {
+                                        let mut v = v.get_mut();
+                                        let text = v.get_content();
+                                        tx.send(text.to_string());
+                                        v.set_content("");
+                                        Some(EventResult::consumed())
+                                    },
+                                ),
+                            ),
                     )
                     .scroll_strategy(ScrollStrategy::StickToBottom),
                 )),
             ))
     }
+
+    const fn get_str_ascii(intent: u8) -> &'static str {
+        let index = intent / 32;
+        const ascii: [&str; 8] = [" ", ".", ",", "-", "~", "+", "=", "@"];
+        ascii[index as usize]
+    }
+
+    pub fn get_image<P>(dir: P, scale: u32) -> String
+    where
+        P: AsRef<Path>,
+    {
+        use image::GenericImageView;
+
+        let mut output = String::from("");
+        let img = image::open(dir).unwrap();
+        let (width, height) = img.dimensions();
+        for y in 0..height {
+            for x in 0..width {
+                if y % (scale * 2) == 0 && x % scale == 0 {
+                    let pix = img.get_pixel(x, y);
+                    let mut intent = pix[0] / 3 + pix[1] / 3 + pix[2] / 3;
+                    if pix[3] == 0 {
+                        intent = 0;
+                    }
+                    output += Self::get_str_ascii(intent);
+                }
+            }
+            if y % (scale * 2) == 0 {
+                output += "\n";
+            }
+        }
+        output
+    }
 }
 
 pub struct UIMessenger {
     text_content: TextContent,
+    frame_content: TextContent,
     cb_sink: CbSink,
+    input_receiver: Receiver<String>,
 }
 
 impl UIMessenger {
@@ -136,12 +213,25 @@ impl UIMessenger {
         self.update_ui();
     }
 
+    pub fn clear_frame(&mut self) {
+        self.frame_content.set_content("");
+        self.update_ui();
+    }
+
     pub fn append<S>(&mut self, s: S)
     where
         S: Into<StyledString>,
     {
         self.text_content.append(s);
         self.text_content.append("\n");
+        self.update_ui();
+    }
+
+    pub fn set_frame<S>(&mut self, s: S)
+    where
+        S: Into<StyledString>,
+    {
+        self.frame_content.set_content(s);
         self.update_ui();
     }
 
@@ -203,5 +293,36 @@ impl UIMessenger {
                 s.pop_layer();
             }))
             .unwrap();
+    }
+
+    pub fn update_text_input(&self, disable: bool) {
+        self.cb_sink
+            .send(Box::new(move |s| {
+                s.call_on_name("text-input", move |v: &mut TextArea| {
+                    if disable {
+                        v.disable();
+                    } else {
+                        v.enable();
+                    }
+                })
+                .unwrap();
+                if !disable {
+                    s.focus_name("text-input").unwrap();
+                }
+            }))
+            .unwrap();
+    }
+
+    pub fn get_input(&self) -> String {
+        self.update_text_input(false);
+        let input = self.input_receiver.recv().unwrap();
+        self.update_text_input(true);
+        input
+    }
+
+    pub fn get_append_input(&mut self) -> String {
+        let input = self.get_input();
+        self.append(&input);
+        input
     }
 }

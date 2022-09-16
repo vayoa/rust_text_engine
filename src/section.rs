@@ -16,6 +16,7 @@ use crate::character::Character;
 use crate::condition::{Condition, Conditional};
 use crate::executable::{Executable, ExecutionState};
 use crate::initializer::{InitializerData, RuntimeState};
+use crate::show_input::ShowInput;
 use crate::switcher::Switcher;
 use crate::text_input::{TextInput, TitleInput};
 use crate::traits::Compiled;
@@ -55,6 +56,7 @@ pub enum Section {
         otherwise: Option<Box<Section>>,
     },
     Let(String),
+    Show(ShowInput),
 }
 
 impl Executable for Section {
@@ -98,7 +100,7 @@ impl Executable for Section {
                 }
             }
             Section::Input(switcher) => {
-                state.update_input();
+                state.update_input(ui);
                 switcher.execute(execution);
             }
             Section::Branch {
@@ -113,8 +115,9 @@ impl Executable for Section {
                 }
             }
             Section::Switch(switcher) => switcher.execute(execution),
-            Section::Print(val) => println!("{}", state.expand_string(val)),
+            Section::Print(val) => ui.append(state.expand_string(val)),
             Section::Let(expr) => state.var_expr(expr),
+            Section::Show(input) => input.execute(execution),
 
             Section::Refer(_) | Section::CharacterDef(_) | Section::PendingCompilation => (),
         };
@@ -174,6 +177,7 @@ impl Compiled for Section {
             Section::Switch(ref mut switcher) => {
                 switcher.compile(init, base);
             }
+            Section::Show(ref mut input) => input.compile(init, base),
             _ => (),
         };
     }
