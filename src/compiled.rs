@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::{
     file_format::FormatError,
-    initializer::{InitializerData, RuntimeState},
+    initializer::{InitializerData},
 };
 
 pub enum CompileError {

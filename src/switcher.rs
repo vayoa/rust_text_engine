@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::compiled::{Checked, Compiled};
 use crate::condition::Condition;
 use crate::executable::{Executable, ExecutionState};
-use crate::initializer::{InitializerData, RuntimeState};
+use crate::initializer::{InitializerData};
 use crate::section::Section;
 
 #[derive(Debug, Deserialize)]

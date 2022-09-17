@@ -3,19 +3,17 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::Instant;
 
-use cursive::align::VAlign;
-use cursive::direction::Direction;
 use cursive::event::{Event, EventResult, EventTrigger, Key};
 use cursive::theme::{BaseColor, BorderStyle, Color, Effect, Palette, Style, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::IndexedSpan;
-use cursive::view::{Margins, ScrollStrategy, Selector, SizeConstraint};
+use cursive::view::{Margins, ScrollStrategy, SizeConstraint};
 use cursive::views::{
-    DebugView, DummyView, LinearLayout, OnEventView, PaddedView, Panel, ResizedView, ScrollView,
-    StackView, TextArea, TextContent, TextView,
+    DummyView, LinearLayout, OnEventView, PaddedView, Panel, ResizedView, ScrollView, StackView,
+    TextArea, TextContent, TextView,
 };
-use cursive::{CbSink, Cursive, CursiveRunnable, View, With};
+use cursive::{CbSink, Cursive, CursiveRunnable, With};
 
 use crate::compiled::CompileError;
 use crate::text_input::TitleInput;
@@ -246,7 +244,7 @@ impl UIMessenger {
 
     #[inline]
     pub fn err(&mut self, e: &CompileError) {
-        self.append_titled_err(&(e.name().to_string() + "Error"), &e.to_string());
+        self.append_titled_err(&(e.name() + "Error"), &e.to_string());
         self.title(&TitleInput {
             text: "ERROR".to_string(),
             wait: 2,

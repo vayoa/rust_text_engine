@@ -9,13 +9,13 @@ use evalexpr::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
-use serde_json::from_str as json_from_str;
-use serde_yaml::from_str as yaml_from_str;
+
+
 
 use crate::character::Character;
 use crate::compiled::{Comp, CompileError, Compiled};
 use crate::executable::{Executable, ExecutionState};
-use crate::file_format::{FileFormat, FormatError};
+use crate::file_format::{FileFormat};
 use crate::section::Section;
 use crate::ui::UIMessenger;
 
@@ -52,7 +52,7 @@ impl Initializer {
         path.push("init");
         path.set_extension(&extension.name());
         let filename = path.to_str();
-        if let None = filename {
+        if filename.is_none() {
             return Err(CompileError::UnvalidPath);
         }
         let filename = filename.unwrap();
