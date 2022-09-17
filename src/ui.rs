@@ -3,21 +3,26 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::Instant;
 
+use cursive::{CbSink, Cursive, CursiveRunnable, With};
+use cursive::align::Align;
 use cursive::event::{Event, EventResult, EventTrigger, Key};
 use cursive::theme::{BaseColor, BorderStyle, Color, Effect, Palette, Style, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
+use cursive::utils::ProgressReader;
 use cursive::utils::span::IndexedSpan;
 use cursive::view::{Margins, ScrollStrategy, SizeConstraint};
 use cursive::views::{
-    DummyView, LinearLayout, OnEventView, PaddedView, Panel, ResizedView, ScrollView, StackView,
-    TextArea, TextContent, TextView,
+    DummyView, LinearLayout, OnEventView, PaddedView, Panel, ProgressBar, ResizedView, ScrollView,
+    StackView, TextArea, TextContent, TextView,
 };
-use cursive::{CbSink, Cursive, CursiveRunnable, With};
+use cursive_aligned_view::{Alignable, AlignedView};
 
-use crate::compiled::CompileError;
-use crate::text_input::TitleInput;
 use crate::{FileFormat, Initializer};
+use crate::compiled::{Comp, CompileError};
+use crate::show_input::Alignment;
+use crate::text_input::TitleInput;
+use crate::ui_messenger::UIMessenger;
 
 pub struct UI {
     siv: CursiveRunnable,
@@ -42,7 +47,13 @@ impl UI {
 
         siv.add_fullscreen_layer(
             StackView::new()
-                .fullscreen_layer(TextView::new_with_content(draw_content.clone()).no_wrap())
+                .fullscreen_layer(
+                    TextView::new_with_content(draw_content.clone())
+                        .no_wrap()
+                        .align_center()
+                        .with_name("frame-view")
+                        .full_screen(),
+                )
                 .transparent_layer(Self::textview(&text_content, tx)),
         );
 
@@ -56,6 +67,7 @@ impl UI {
         )
     }
 
+    #[inline]
     pub fn cb_sink(&self) -> &CbSink {
         self.siv.cb_sink()
     }
@@ -87,12 +99,7 @@ impl UI {
         frame_content: TextContent,
         input_receiver: Receiver<String>,
     ) {
-        let mut m = UIMessenger {
-            text_content: content,
-            cb_sink,
-            input_receiver,
-            frame_content,
-        };
+        let mut m = UIMessenger::new(content, frame_content, cb_sink, input_receiver);
 
         let initializer = Initializer::new(root.to_owned(), FileFormat::Yaml);
         if let Ok(mut initializer) = initializer {
@@ -166,19 +173,28 @@ impl UI {
         ASCII[index as usize]
     }
 
-    pub fn get_image<P>(dir: P, scale: u32) -> String
-    where
-        P: AsRef<Path>,
+    pub fn get_image<P>(dir: P, scale: u32, invert: bool) -> Comp<String>
+        where
+            P: AsRef<Path>,
     {
         use image::GenericImageView;
 
         let mut output = String::from("");
-        let img = image::open(dir).unwrap();
+        let dir: &Path = dir.as_ref();
+        if !dir.exists() {
+            return Err(CompileError::InvalidPath(dir.to_path_buf()));
+        }
+        let img = image::open(dir)?;
         let (width, height) = img.dimensions();
         for y in 0..height {
             for x in 0..width {
                 if y % (scale * 2) == 0 && x % scale == 0 {
-                    let pix = img.get_pixel(x, y);
+                    let mut pix = img.get_pixel(x, y);
+                    if invert {
+                        for i in 0..3 {
+                            pix[i] = 255 - pix[i];
+                        }
+                    }
                     let mut intent = pix[0] / 3 + pix[1] / 3 + pix[2] / 3;
                     if pix[3] == 0 {
                         intent = 0;
@@ -190,163 +206,6 @@ impl UI {
                 output += "\n";
             }
         }
-        output
-    }
-}
-
-pub struct UIMessenger {
-    text_content: TextContent,
-    frame_content: TextContent,
-    cb_sink: CbSink,
-    input_receiver: Receiver<String>,
-}
-
-impl UIMessenger {
-    pub fn update_ui(&self) {
-        self.cb_sink.send(Box::new(Cursive::noop)).unwrap();
-    }
-
-    pub fn clear(&mut self) {
-        self.text_content.set_content("");
-        self.update_ui();
-    }
-
-    pub fn clear_frame(&mut self) {
-        self.frame_content.set_content("");
-        self.update_ui();
-    }
-
-    pub fn append<S>(&mut self, s: S)
-    where
-        S: Into<StyledString>,
-    {
-        self.text_content.append(s);
-        self.text_content.append("\n");
-        self.update_ui();
-    }
-
-    fn append_titled_err(&mut self, t: &str, s: &str) {
-        let style = Style::from(Color::Light(BaseColor::Red));
-        let s = StyledString::single_span(s.to_string() + "\n", style);
-        let t = StyledString::single_span(
-            t.to_string() + "\n",
-            style.combine(Effect::Reverse).combine(Effect::Bold),
-        );
-        self.text_content.append(t);
-        self.text_content.append(s);
-        self.update_ui();
-    }
-
-    #[inline]
-    pub fn append_err(&mut self, s: &str) {
-        self.append_titled_err("Error", s);
-    }
-
-    #[inline]
-    pub fn err(&mut self, e: &CompileError) {
-        self.append_titled_err(&(e.name() + "Error"), &e.to_string());
-        self.title(&TitleInput {
-            text: "ERROR".to_string(),
-            wait: 2,
-        });
-    }
-
-    pub fn set_frame<S>(&mut self, s: S)
-    where
-        S: Into<StyledString>,
-    {
-        self.frame_content.set_content(s);
-        self.update_ui();
-    }
-
-    pub fn typewrite_s<S>(&mut self, s: S, speed: f32)
-    where
-        S: Into<StyledString>,
-    {
-        let s = s.into();
-        let l = s.width();
-        self.typewrite(s, l as f32 / speed);
-        self.text_content.append("\n");
-        self.update_ui();
-    }
-
-    // Stolen from snailprint...
-    pub fn typewrite<S>(&mut self, s: S, duration: f32)
-    where
-        S: Into<StyledString>,
-    {
-        use std::thread::sleep;
-
-        let time = Instant::now();
-
-        let s = s.into();
-        let mut string = s.source().to_string();
-        let fps = 60.0;
-        let delta = 1.0 / fps;
-        let len = string.len();
-        let span: &IndexedSpan<Style> = s.spans_raw().first().unwrap();
-        // TODO: Use the actual styling, per span!! (instead of just the first span...)
-        let style = span.attr;
-
-        'outer: while !s.is_empty() {
-            let char_targ = (len as f32 * time.elapsed().as_secs_f32() / duration) as usize;
-
-            while char_targ > len - string.len() {
-                if !string.is_empty() {
-                    let character = string.remove(0);
-                    self.text_content
-                        .append(StyledString::styled(character, style));
-                    self.update_ui();
-                } else {
-                    // this is so sleep() is not called when this loop breaks
-                    break 'outer;
-                }
-            }
-            sleep(std::time::Duration::from_secs_f32(delta));
-        }
-    }
-
-    pub fn title(&self, input: &TitleInput) {
-        let figure = input.figure().to_string();
-        self.cb_sink
-            .send(Box::new(|s| s.add_layer(TextView::new(figure))))
-            .unwrap();
-        crate::common::sleep(input.wait);
-        self.cb_sink
-            .send(Box::new(|s| {
-                s.pop_layer();
-            }))
-            .unwrap();
-    }
-
-    pub fn update_text_input(&self, disable: bool) {
-        self.cb_sink
-            .send(Box::new(move |s| {
-                s.call_on_name("text-input", move |v: &mut TextArea| {
-                    if disable {
-                        v.disable();
-                    } else {
-                        v.enable();
-                    }
-                })
-                .unwrap();
-                if !disable {
-                    s.focus_name("text-input").unwrap();
-                }
-            }))
-            .unwrap();
-    }
-
-    pub fn get_input(&self) -> String {
-        self.update_text_input(false);
-        let input = self.input_receiver.recv().unwrap();
-        self.update_text_input(true);
-        input
-    }
-
-    pub fn get_append_input(&mut self) -> String {
-        let input = self.get_input();
-        self.append(&input);
-        input
+        Ok(output)
     }
 }

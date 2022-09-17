@@ -4,11 +4,12 @@ use relative_path::RelativePathBuf;
 use serde::Deserialize;
 
 use crate::{compiled::Compiled, executable::Executable, section::Section};
+use crate::path_reference::PathReference;
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Refer {
-    Relative(RelativePathBuf),
+    Relative(PathReference),
     #[serde(skip_deserializing)]
     #[serde(skip_serializing)]
     Resolved(PathBuf),
@@ -36,8 +37,8 @@ impl Compiled for Refer {
     ) -> crate::compiled::Checked {
         match self {
             Self::Relative(ref mut relative_path) => {
-                relative_path.set_extension(init.extension.name());
-                let mut path = relative_path.to_path(base);
+                let mut path = relative_path.logical_path(base);
+                path.set_extension(init.extension.name());
                 let compiled = path.to_owned();
                 if !init.compiled_refs.contains_key(&compiled) {
                     let raw_contents = fs::read_to_string(&path)?;

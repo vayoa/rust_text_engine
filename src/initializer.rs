@@ -3,21 +3,19 @@ use std::fs;
 use std::path::PathBuf;
 
 use evalexpr::{
-    eval_boolean_with_context, eval_with_context, eval_with_context_mut,
-    ContextWithMutableVariables, HashMapContext, Value,
+    ContextWithMutableVariables, eval_boolean_with_context, eval_with_context,
+    eval_with_context_mut, HashMapContext, Value,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
 
-
-
 use crate::character::Character;
-use crate::compiled::{Comp, CompileError, Compiled};
+use crate::compiled::{Comp, Compiled, CompileError};
 use crate::executable::{Executable, ExecutionState};
-use crate::file_format::{FileFormat};
+use crate::file_format::FileFormat;
 use crate::section::Section;
-use crate::ui::UIMessenger;
+use crate::ui_messenger::UIMessenger;
 
 #[derive(Debug, Deserialize)]
 pub struct InitializerData {
@@ -53,7 +51,7 @@ impl Initializer {
         path.set_extension(&extension.name());
         let filename = path.to_str();
         if filename.is_none() {
-            return Err(CompileError::UnvalidPath);
+            return Err(CompileError::InvalidPath(path.to_path_buf()));
         }
         let filename = filename.unwrap();
         let raw_contents = fs::read_to_string(filename)?;

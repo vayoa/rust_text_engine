@@ -4,7 +4,11 @@
   wait: 2
 # - !show a picture of a bedroom at night with teenage boy sleeping in his bed.
 #   then, after a while, the symbol of ether shows up (possible in his color).
-# - !show
+- !show
+  file: C:\Users\ew0nd\Pictures\rust_logo.png
+  scale: 50
+  align: center
+  invert: true
 - !text
   ether: wake him up.
 - !wait 4
@@ -13,11 +17,11 @@
   def: !print didn't type "yo".
   cases:
     - sec: !print typed "yo".
-      cap: [!lit yo]
+      cap: [ !lit yo ]
 - !text
   ether: present my gift to him.
 - !in
   def: !print didn't type "yo".
   cases:
     - sec: !print typed "yo".
-      cap: [!lit yo]
+      cap: [ !lit yo ]

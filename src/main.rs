@@ -17,6 +17,8 @@ mod show_input;
 mod switcher;
 mod text_input;
 mod ui;
+mod ui_messenger;
+mod path_reference;
 
 fn main() {
     handle_yaml();
