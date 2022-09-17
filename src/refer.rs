@@ -1,6 +1,5 @@
 use std::{fs, path::PathBuf};
 
-use relative_path::RelativePathBuf;
 use serde::Deserialize;
 
 use crate::{compiled::Compiled, executable::Executable, section::Section};

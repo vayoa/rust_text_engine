@@ -1,9 +1,6 @@
-use std::fs;
 use std::path::PathBuf;
 
 use cursive::theme::Effect;
-
-use relative_path::RelativePathBuf;
 use serde::Deserialize;
 
 use crate::capture::Capture;

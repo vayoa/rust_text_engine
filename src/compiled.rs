@@ -1,5 +1,4 @@
-use core::result;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use image::ImageError;
 

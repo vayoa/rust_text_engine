@@ -1,4 +1,3 @@
-use relative_path::RelativePathBuf;
 use serde::Deserialize;
 
 use crate::{
@@ -118,7 +117,7 @@ pub struct ShowInput {
 
 impl Executable for ShowInput {
     fn execute(&self, execution: &mut ExecutionState) {
-        // self.alignment.execute(execution);
+        self.alignment.execute(execution);
         let frame = self.frame.get_frame();
         execution.ui.set_frame(frame);
         if let Some(dur) = self.duration {

@@ -3,7 +3,7 @@ use std::sync::mpsc::Receiver;
 use cursive::{CbSink, Cursive};
 use cursive::theme::{BaseColor, Color, Effect, Style};
 use cursive::utils::markup::StyledString;
-use cursive::views::{Panel, ResizedView, TextArea, TextContent, TextView};
+use cursive::views::{TextArea, TextContent, TextView};
 use cursive_aligned_view::AlignedView;
 
 use crate::compiled::CompileError;

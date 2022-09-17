@@ -1,9 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use cursive::direction::Relative;
 use relative_path::RelativePathBuf;
-use serde::{Deserialize, Deserializer};
-use serde::de::Error;
+use serde::Deserialize;
 
 use crate::compiled::{Checked, Compiled, CompileError};
 use crate::initializer::InitializerData;

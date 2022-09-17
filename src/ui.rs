@@ -1,27 +1,20 @@
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
-use std::time::Instant;
 
-use cursive::{CbSink, Cursive, CursiveRunnable, With};
-use cursive::align::Align;
+use cursive::{CbSink, CursiveRunnable, With};
 use cursive::event::{Event, EventResult, EventTrigger, Key};
-use cursive::theme::{BaseColor, BorderStyle, Color, Effect, Palette, Style, Theme};
+use cursive::theme::{BorderStyle, Palette, Theme};
 use cursive::traits::{Nameable, Resizable};
-use cursive::utils::markup::StyledString;
-use cursive::utils::ProgressReader;
-use cursive::utils::span::IndexedSpan;
 use cursive::view::{Margins, ScrollStrategy, SizeConstraint};
 use cursive::views::{
-    DummyView, LinearLayout, OnEventView, PaddedView, Panel, ProgressBar, ResizedView, ScrollView,
+    DummyView, LinearLayout, OnEventView, PaddedView, Panel, ResizedView, ScrollView,
     StackView, TextArea, TextContent, TextView,
 };
-use cursive_aligned_view::{Alignable, AlignedView};
+use cursive_aligned_view::Alignable;
 
 use crate::{FileFormat, Initializer};
 use crate::compiled::{Comp, CompileError};
-use crate::show_input::Alignment;
-use crate::text_input::TitleInput;
 use crate::ui_messenger::UIMessenger;
 
 pub struct UI {
