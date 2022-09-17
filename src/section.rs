@@ -1,26 +1,21 @@
 use std::fs;
 use std::path::PathBuf;
 
-
 use cursive::theme::Effect;
-
 
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
-
-
-
 
 use crate::capture::Capture;
 use crate::character::Character;
 use crate::compiled::{Checked, Compiled};
 use crate::condition::{Condition, Conditional};
 use crate::executable::{Executable, ExecutionState};
-use crate::initializer::{InitializerData};
+use crate::initializer::InitializerData;
+use crate::refer::Refer;
 use crate::show_input::ShowInput;
 use crate::switcher::Switcher;
 use crate::text_input::{TextInput, TitleInput};
-
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,11 +30,7 @@ pub enum Section {
     Print(String),
     Wait(u64),
     #[serde(alias = "ref")]
-    Refer(RelativePathBuf),
-    #[serde(skip_deserializing)]
-    #[serde(skip_serializing)]
-    // TODO: Figure out a way to get rid of this...
-    ResolvedRefer(PathBuf),
+    Refer(Refer),
     #[serde(skip_deserializing)]
     #[serde(skip_serializing)]
     PendingCompilation,
@@ -91,9 +82,7 @@ impl Executable for Section {
             }
             Section::Title(title_input) => title_input.execute(execution),
             Section::Wait(seconds) => crate::common::sleep(*seconds),
-            Section::ResolvedRefer(path) => {
-                init.compiled_refs.get(path).unwrap().execute(execution)
-            }
+            Section::Refer(refer) => refer.execute(execution),
             Section::Sequence(sections) => {
                 for section in sections {
                     section.execute(execution);
@@ -119,7 +108,7 @@ impl Executable for Section {
             Section::Let(expr) => state.var_expr(expr),
             Section::Show(input) => input.execute(execution),
 
-            Section::Refer(_) | Section::CharacterDef(_) | Section::PendingCompilation => (),
+            Section::CharacterDef(_) | Section::PendingCompilation => (),
         };
     }
 }
@@ -132,24 +121,7 @@ impl Compiled for Section {
                 init.characters.insert(c.name.clone(), c);
                 Ok(())
             }
-            Section::Refer(ref mut relative_path) => {
-                relative_path.set_extension(init.extension.name());
-                let mut path = relative_path.to_path(base);
-                let compiled = path.to_owned();
-                if !init.compiled_refs.contains_key(&compiled) {
-                    let raw_contents = fs::read_to_string(&path)?;
-
-                    let mut s: Section = init.extension.deserialize_str(&raw_contents)?;
-
-                    path.pop();
-                    init.compiled_refs
-                        .insert(compiled.to_owned(), Section::PendingCompilation);
-                    s.compile(init, &path);
-                    *init.compiled_refs.get_mut(&compiled).unwrap() = s;
-                }
-                *self = Section::ResolvedRefer(compiled);
-                Ok(())
-            }
+            Section::Refer(ref mut refer) => refer.compile(init, base),
             Section::Sequence(ref mut sections) => {
                 for section in sections.iter_mut() {
                     section.compile(init, base)?;

@@ -1,23 +1,22 @@
 use core::result;
 use std::path::PathBuf;
 
-use crate::{
-    file_format::FormatError,
-    initializer::{InitializerData},
-};
+use crate::{file_format::FormatError, initializer::InitializerData};
 
 pub enum CompileError {
     Format(FormatError),
     IO(std::io::Error),
     UnvalidPath,
+    UnresolvedRefer(PathBuf),
 }
 
 impl CompileError {
     pub fn name(&self) -> String {
         match self {
-            CompileError::Format(e) => e.name() + " - Format",
-            CompileError::IO(_) => "IO".to_owned(),
-            CompileError::UnvalidPath => "UnvalidPath".to_owned(),
+            Self::Format(e) => e.name() + " - Format",
+            Self::IO(_) => "IO".to_owned(),
+            Self::UnvalidPath => "UnvalidPath".to_owned(),
+            Self::UnresolvedRefer(_) => " UnresolvedRefer".to_owned(),
         }
     }
 }
@@ -39,6 +38,9 @@ impl ToString for CompileError {
             Self::Format(e) => e.to_string(),
             Self::IO(e) => e.to_string(),
             Self::UnvalidPath => "Unvalid Path".to_string(),
+            Self::UnresolvedRefer(path) => {
+                "Unresolved Refer of ".to_string() + path.to_str().unwrap() + "."
+            }
         }
     }
 }

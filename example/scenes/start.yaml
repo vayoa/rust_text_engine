@@ -4,7 +4,7 @@
   wait: 2
 # - !show a picture of a bedroom at night with teenage boy sleeping in his bed.
 #   then, after a while, the symbol of ether shows up (possible in his color).
-- a
+# - !show
 - !text
   ether: wake him up.
 - !wait 4
