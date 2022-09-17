@@ -13,10 +13,10 @@ use serde_json::from_str as json_from_str;
 use serde_yaml::from_str as yaml_from_str;
 
 use crate::character::Character;
+use crate::compiled::{Comp, CompileError, Compiled};
 use crate::executable::{Executable, ExecutionState};
-use crate::file_format::FileFormat;
+use crate::file_format::{FileFormat, FormatError};
 use crate::section::Section;
-use crate::traits::Compiled;
 use crate::ui::UIMessenger;
 
 #[derive(Debug, Deserialize)]
@@ -46,65 +46,25 @@ pub struct Initializer {
     state: RuntimeState,
 }
 
-pub enum InitError {
-    YAML(serde_yaml::Error),
-    JSON(serde_json::Error),
-    IO(std::io::Error),
-    UnvalidPath,
-}
-
-impl From<serde_json::Error> for InitError {
-    fn from(e: serde_json::Error) -> Self {
-        Self::JSON(e)
-    }
-}
-impl From<serde_yaml::Error> for InitError {
-    fn from(e: serde_yaml::Error) -> Self {
-        Self::YAML(e)
-    }
-}
-impl From<std::io::Error> for InitError {
-    fn from(e: std::io::Error) -> Self {
-        Self::IO(e)
-    }
-}
-impl ToString for InitError {
-    #[inline]
-    fn to_string(&self) -> String {
-        match self {
-            InitError::YAML(e) => e.to_string(),
-            InitError::JSON(e) => e.to_string(),
-            InitError::IO(e) => e.to_string(),
-            InitError::UnvalidPath => "Unvalid Path".to_string(),
-        }
-    }
-}
-
 impl Initializer {
-    pub fn new(root: String, extension: FileFormat) -> Result<Self, InitError> {
+    pub fn new(root: String, extension: FileFormat) -> Comp<Self> {
         let mut path = PathBuf::from(&root);
-        println!("reached");
         path.push("init");
-        println!("reached");
         path.set_extension(&extension.name());
-        println!("reached");
         let filename = path.to_str();
         if let None = filename {
-            return Err(InitError::UnvalidPath);
+            return Err(CompileError::UnvalidPath);
         }
         let filename = filename.unwrap();
         let raw_contents = fs::read_to_string(filename)?;
 
         path.pop();
 
-        let mut initializer: Initializer = match extension {
-            FileFormat::Json => json_from_str(&raw_contents)?,
-            FileFormat::Yaml => yaml_from_str(&raw_contents)?,
-        };
+        let mut initializer: Initializer = extension.deserialize_str(&raw_contents)?;
 
         initializer.data.extension = extension;
         initializer.root = path.to_owned();
-        initializer.entry.compile(&mut initializer.data, &path);
+        initializer.entry.compile(&mut initializer.data, &path)?;
 
         Ok(initializer)
     }

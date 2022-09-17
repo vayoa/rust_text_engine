@@ -13,13 +13,13 @@ use snailshell::{snailprint_d, snailprint_s};
 
 use crate::capture::Capture;
 use crate::character::Character;
+use crate::compiled::{Checked, Comp, Compiled};
 use crate::condition::{Condition, Conditional};
 use crate::executable::{Executable, ExecutionState};
 use crate::initializer::{InitializerData, RuntimeState};
 use crate::show_input::ShowInput;
 use crate::switcher::Switcher;
 use crate::text_input::{TextInput, TitleInput};
-use crate::traits::Compiled;
 use crate::FileFormat;
 
 #[derive(Debug, Deserialize)]
@@ -125,28 +125,21 @@ impl Executable for Section {
 }
 
 impl Compiled for Section {
-    fn compile(&mut self, init: &mut InitializerData, base: &PathBuf) {
+    fn compile(&mut self, init: &mut InitializerData, base: &PathBuf) -> Checked {
         match *self {
             Section::CharacterDef(ref character) => {
                 let c = character.clone();
                 init.characters.insert(c.name.clone(), c);
+                Ok(())
             }
             Section::Refer(ref mut relative_path) => {
                 relative_path.set_extension(init.extension.name());
                 let mut path = relative_path.to_path(base);
                 let compiled = path.to_owned();
                 if !init.compiled_refs.contains_key(&compiled) {
-                    let raw_contents =
-                        fs::read_to_string(&path).expect("Something went wrong with the file.");
+                    let raw_contents = fs::read_to_string(&path)?;
 
-                    let mut s: Section = match init.extension {
-                        FileFormat::Json => {
-                            json_from_str(&raw_contents).expect("JSON was not well-formatted.")
-                        }
-                        FileFormat::Yaml => {
-                            yaml_from_str(&raw_contents).expect("YAML was not well-formatted.")
-                        }
-                    };
+                    let mut s: Section = init.extension.deserialize_str(&raw_contents)?;
 
                     path.pop();
                     init.compiled_refs
@@ -155,30 +148,29 @@ impl Compiled for Section {
                     *init.compiled_refs.get_mut(&compiled).unwrap() = s;
                 }
                 *self = Section::ResolvedRefer(compiled);
+                Ok(())
             }
             Section::Sequence(ref mut sections) => {
                 for section in sections.iter_mut() {
-                    section.compile(init, base);
+                    section.compile(init, base)?;
                 }
+                Ok(())
             }
-            Section::Input(ref mut switcher) => {
-                switcher.compile(init, base);
-            }
+            Section::Input(ref mut switcher) => switcher.compile(init, base),
             Section::Branch {
                 ref mut then,
                 ref mut otherwise,
                 ..
             } => {
-                then.compile(init, base);
+                then.compile(init, base)?;
                 if let Some(val) = otherwise {
-                    val.compile(init, base);
+                    val.compile(init, base)?;
                 }
+                Ok(())
             }
-            Section::Switch(ref mut switcher) => {
-                switcher.compile(init, base);
-            }
+            Section::Switch(ref mut switcher) => switcher.compile(init, base),
             Section::Show(ref mut input) => input.compile(init, base),
-            _ => (),
-        };
+            _ => Ok(()),
+        }
     }
 }

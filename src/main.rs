@@ -6,6 +6,7 @@ mod capture;
 mod character;
 mod character_style;
 mod common;
+mod compiled;
 mod condition;
 mod executable;
 mod file_format;
@@ -14,7 +15,6 @@ mod section;
 mod show_input;
 mod switcher;
 mod text_input;
-mod traits;
 mod ui;
 
 fn main() {

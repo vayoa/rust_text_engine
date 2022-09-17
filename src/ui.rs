@@ -6,7 +6,7 @@ use std::time::Instant;
 use cursive::align::VAlign;
 use cursive::direction::Direction;
 use cursive::event::{Event, EventResult, EventTrigger, Key};
-use cursive::theme::{BorderStyle, Palette, Style, Theme};
+use cursive::theme::{BaseColor, BorderStyle, Color, Effect, Palette, Style, Theme};
 use cursive::traits::{Nameable, Resizable};
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::IndexedSpan;
@@ -17,6 +17,7 @@ use cursive::views::{
 };
 use cursive::{CbSink, Cursive, CursiveRunnable, View, With};
 
+use crate::compiled::CompileError;
 use crate::text_input::TitleInput;
 use crate::{FileFormat, Initializer};
 
@@ -76,7 +77,7 @@ impl UI {
             Self::execute_sections(cb_sink, &root, content, draw_content, rx);
         });
 
-        // self.siv.run();
+        self.siv.run();
     }
 
     // We will only simulate log generation here.
@@ -95,12 +96,11 @@ impl UI {
             frame_content,
         };
 
-        println!("hey");
         let initializer = Initializer::new(root.to_owned(), FileFormat::Yaml);
         if let Ok(mut initializer) = initializer {
             initializer.execute(m);
         } else {
-            m.append(initializer.unwrap_err().to_string());
+            m.err(&initializer.unwrap_err());
         }
     }
 
@@ -164,8 +164,8 @@ impl UI {
 
     const fn get_str_ascii(intent: u8) -> &'static str {
         let index = intent / 32;
-        const ascii: [&str; 8] = [" ", ".", ",", "-", "~", "+", "=", "@"];
-        ascii[index as usize]
+        const ASCII: [&str; 8] = [" ", ".", ",", "-", "~", "+", "=", "@"];
+        ASCII[index as usize]
     }
 
     pub fn get_image<P>(dir: P, scale: u32) -> String
@@ -225,6 +225,32 @@ impl UIMessenger {
         self.text_content.append(s);
         self.text_content.append("\n");
         self.update_ui();
+    }
+
+    fn append_titled_err(&mut self, t: &str, s: &str) {
+        let style = Style::from(Color::Light(BaseColor::Red));
+        let s = StyledString::single_span(s.to_string() + "\n", style);
+        let t = StyledString::single_span(
+            t.to_string() + "\n",
+            style.combine(Effect::Reverse).combine(Effect::Bold),
+        );
+        self.text_content.append(t);
+        self.text_content.append(s);
+        self.update_ui();
+    }
+
+    #[inline]
+    pub fn append_err(&mut self, s: &str) {
+        self.append_titled_err("Error", s);
+    }
+
+    #[inline]
+    pub fn err(&mut self, e: &CompileError) {
+        self.append_titled_err(&(e.name().to_string() + "Error"), &e.to_string());
+        self.title(&TitleInput {
+            text: "ERROR".to_string(),
+            wait: 2,
+        });
     }
 
     pub fn set_frame<S>(&mut self, s: S)

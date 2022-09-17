@@ -1,4 +1,7 @@
-use crate::{executable::Executable, traits::Compiled};
+use crate::{
+    compiled::{Checked, Compiled},
+    executable::Executable,
+};
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
 
@@ -31,7 +34,7 @@ impl Compiled for ShowType {
         &mut self,
         _init: &mut crate::initializer::InitializerData,
         base: &std::path::PathBuf,
-    ) {
+    ) -> Checked {
         match &self {
             ShowType::Dry(_) => (),
             ShowType::Path { file, scale } => {
@@ -40,6 +43,7 @@ impl Compiled for ShowType {
                 *self = ShowType::Dry(frame);
             }
         };
+        Ok(())
     }
 }
 
@@ -67,7 +71,7 @@ impl Compiled for ShowInput {
         &mut self,
         init: &mut crate::initializer::InitializerData,
         base: &std::path::PathBuf,
-    ) {
-        self.frame.compile(init, base);
+    ) -> Checked {
+        self.frame.compile(init, base)
     }
 }
